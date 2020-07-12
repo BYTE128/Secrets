@@ -19,7 +19,7 @@ app.use(express.static("public"));
 app.use(bodyParser.urlencoded({extended: true}));
 
 app.use(session({
-    secret: "Our little secret.",
+    secret: process.env.SECRET,
     resave: false,
     saveUninitialized: false,
 }));
@@ -34,7 +34,8 @@ const userSchema = new mongoose.Schema({
     email: String,
     password: String,
     googleId: String,
-    facebookId: String
+    facebookId: String,
+    secret: String
 });
 
 //Below line used for passport-local-mongoose
@@ -119,11 +120,38 @@ function(req, res) {
 );
 
 app.get("/secrets", (req, res) => {
+    User.find({ "secret": { $ne: null } }, { _id: 0, "secret": 1 }, (err, foundSecrets) => {
+        if(err) {
+            console.log(err);
+        } else {
+            res.render("secrets", { usersWithSecrets: foundSecrets });
+        }
+    });
+});
+
+app.get("/submit", (req, res) => {
     if(req.isAuthenticated()) {
-        res.render("secrets");
+        res.render("submit");
     } else {
         res.redirect("/login");
     }
+});
+
+app.post("/submit", (req, res) => {
+    const submittedSecret = req.body.secret;
+
+    User.findById(req.user.id, (err, foundUser) => {
+        if(err) {
+            console.log(err);
+        } else {
+            if(foundUser) {
+                foundUser.secret = submittedSecret;
+                foundUser.save(() => {
+                    res.redirect("/secrets");
+                });
+            }
+        }
+    });
 });
 
 app.get("/register", (req, res) => {
